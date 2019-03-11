@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <CAN.h>
 #include <WiFi.h>
 #include <aREST.h>
 
@@ -30,28 +31,9 @@ double voltage = 12.7;
 
 // Declare functions to be exposed to the API
 int ledControl(String command);
-
 void setup(void)
 {
-
-    pinMode(13, OUTPUT);
-
     Serial.begin(9600);
-
-    // Init variables and expose them to REST API
-    // rest.variable("coolTemp (f)", &waterTemp);
-    // rest.variable("oilTemp (f)", &oilTemp);
-    // rest.variable("oilPres (psi)", &oilPres);
-    // rest.variable("vBat", &voltage);
-    // rest.variable("TPS (%)", &tps);
-    // rest.variable("AFR", &afr);
-
-    // rest.variable("EGT1 (f)", &EGT1);
-    // rest.variable("EGT2 (f)", &EGT2);
-    // rest.variable("EGT3 (f)", &EGT3);
-    // rest.variable("EGT4 (f)", &EGT4);
-
-    // Init variables and expose them to REST API
     rest.variable("coolTemp", &waterTemp);
     rest.variable("oilTemp", &oilTemp);
     rest.variable("oilPres", &oilPres);
@@ -65,7 +47,7 @@ void setup(void)
     rest.variable("EGT4", &EGT4);
 
     // Function to be exposed
-    rest.function("led", ledControl);
+    //rest.function("led", ledControl);
 
     // Give name & ID to the device (ID should be 6 characters long)
     rest.set_id("000001");
@@ -90,39 +72,32 @@ void setup(void)
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(myIP);
+
+    CAN.setPins(4, 5);
+    CAN.begin(250E3);
+
+    delay(500);
+    if (!CAN.begin(250E3))
+        Serial.println("Starting CAN failed!");
+    else
+        Serial.println("Starting CAN success!");
 }
 
 void loop()
 {
-
-    // Handle REST calls
-    WiFiClient client = server.available();
-    // if (!client)
-    // {
-    //     return;
-    // }
-    // while (!client.available())
-    // {
-    //     delay(1);
-    // }
-    rest.handle(client);
-
-    waterTemp += 1;
-    oilTemp += 1;
-    voltage -= 0.01;
-
-    delay(500);
-
-    digitalWrite(13, !digitalRead(13));
-}
-
-// Custom function accessible by the API
-int ledControl(String command)
-{
-
-    // Get state from command
-    int state = command.toInt();
-
-    digitalWrite(13, state);
-    return state;
+    int packetsent = CAN.parsePacket();
+    if (packetsent)
+    {
+        Serial.print("Frame ID: ");
+        Serial.println(CAN.packetId());
+        int Bytearray[CAN.available()];
+        for (int i = 0; i < CAN.packetDlc(); i++)
+        {
+            Bytearray[i] = CAN.read();
+            Serial.print("Byte ");
+            Serial.print(i);
+            Serial.print(": ");
+            Serial.println(Bytearray[i]);
+        }
+    }
 }
