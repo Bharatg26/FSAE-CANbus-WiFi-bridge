@@ -16,7 +16,7 @@ const char *password = "password";
 // Create an instance of the server
 WiFiServer server(LISTEN_PORT);
 
-int waterTemp = 180;
+int coolTemp = 180;
 int oilTemp = 240;
 int oilPres = 200;
 int tps = 77;
@@ -34,7 +34,7 @@ int ledControl(String command);
 void setup(void)
 {
     Serial.begin(9600);
-    rest.variable("coolTemp", &waterTemp);
+    rest.variable("coolTemp", &coolTemp);
     rest.variable("oilTemp", &oilTemp);
     rest.variable("oilPres", &oilPres);
     rest.variable("vBat", &voltage);
@@ -47,7 +47,7 @@ void setup(void)
     rest.variable("EGT4", &EGT4);
 
     // Function to be exposed
-    //rest.function("led", ledControl);
+    //+rest.function("led", ledControl);
 
     // Give name & ID to the device (ID should be 6 characters long)
     rest.set_id("000001");
@@ -98,6 +98,42 @@ void loop()
             Serial.print(i);
             Serial.print(": ");
             Serial.println(Bytearray[i]);
+        }
+        if (CAN.packetId() == 0x0CFFF048) //TPS CAN data send
+        {
+            byte lowByte = Bytearray[2];
+            byte highByte = Bytearray[3];
+            tps = ((highByte * 256) + lowByte)/10;
+        }
+        if (CAN.packetId() == 0x0CFFF548) //Voltage/Coolant CAN data send
+        {
+            byte lowByte = Bytearray[0];
+            byte highByte = Bytearray[1];
+            voltage = ((highByte * 256) + lowByte)/100;
+            lowByte = Bytearray[4];
+            highByte = Bytearray[5];
+            coolTemp = ((highByte * 256) + lowByte) / 10;
+        }
+        if (CAN.packetId() == 0x0CFFF148) //afr CAN data send
+        {
+            byte lowByte = Bytearray[4];
+            byte highByte = Bytearray[5];
+            afr = ((highByte * 256) + lowByte) / 100;
+        }
+        if (CAN.packetId() == 0x0CFFF008) //EGT1,2,3,4 CAN data send
+        {
+            byte lowByte = Bytearray[0];
+            byte highByte = Bytearray[1];
+            EGT1 = ((highByte * 256) + lowByte);
+            lowByte = Bytearray[2];
+            highByte = Bytearray[3];
+            EGT2 = ((highByte * 256) + lowByte);
+            lowByte = Bytearray[4];
+            highByte = Bytearray[5];
+            EGT3 = ((highByte * 256) + lowByte);
+            lowByte = Bytearray[6];
+            highByte = Bytearray[7];
+            EGT4 = ((highByte * 256) + lowByte);
         }
     }
 }
